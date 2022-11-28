@@ -35,6 +35,7 @@ class Neo4JAdapter {
     return node
   }
 
+  @Deprecated("Use optimisedBuild()")
   /* id required to be id of a permission node */
   private fun buildNode(id: Int): Node {
     if (!nodes.containsKey(id)) {
