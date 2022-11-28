@@ -13,16 +13,48 @@ class Neo4JAdapter {
   private val driver: Driver = Neo4JController.driver
 
   val nodes: MutableMap<Int, Node> = mutableMapOf()
-  private var attackGraph: Node = buildAttackGraph()
+  private var attackGraph: Node = buildAttackGraph() // replace with optimisedBuild()
 
   fun getGraph(): Node {
     return attackGraph
   }
 
+  fun optimisedBuild(): Node {
+
+    val session: Session = driver.session()
+
+    val edges: List<Int> = session.writeTransaction { tx ->
+      val result: Result = tx.run(
+              "MATCH(x:Permission)-[:To]->(z:Rule)-[:To]->(y:Permission) CALL apoc.create.vRelationship(x, z.text, {id: z.node_id, start: x.node_id, end: y.node_id}, y) yield rel RETURN rel", parameters()
+      )
+      result.list { r -> r.get("start").toString().toInt() }
+    }
+
+    val permissions: String = session.writeTransaction { tx ->
+      val result: Result = tx.run(
+              "MATCH(n:Permission) RETURN n", parameters()
+      )
+      result.list().toString()
+    }
+
+    val startPermissions = session.writeTransaction { tx ->
+      val result: Result = tx.run(
+              "MATCH(f:Fact)-[:To]->(r:Rule)-[:To]->(p:Permission) WHERE (f.text STARTS WITH \"attackerLocated\") RETURN p", parameters()
+      )
+      result.list()
+    }
+
+    println(edges)
+
+    return Node(0, "", setOf())
+  }
+
+  @Deprecated("Use optimisedBuild()")
   fun update() {
     attackGraph = buildAttackGraph()
   }
 
+  @Deprecated("Use optimisedBuild()")
   private fun buildAttackGraph(): Node {
 
     val ruleNodeIds: MutableList<Int> = mutableListOf()
@@ -46,6 +78,7 @@ class Neo4JAdapter {
     return nodes[id]!!
   }
 
+  @Deprecated("use optimiseBuild()")
   /* ids required to be ids of rule nodes */
   private fun buildRules(ids: List<Int>): Set<Rule> {
     val rules: MutableSet<Rule> = mutableSetOf()
@@ -56,6 +89,7 @@ class Neo4JAdapter {
     return rules
   }
 
+  @Deprecated("use optimiseBuild()")
   /* id required to be id of a rule node */
   private fun buildRule(id: Int): Rule {
     val rule: String = getNodeText(id)
@@ -63,6 +97,7 @@ class Neo4JAdapter {
     return Rule(id, rule, dest)
   }
 
+  @Deprecated("use optimiseBuild()")
   /* id required to be id of a rule node */
   private fun connectedPermission(id: Int): Int {
     val session: Session = driver.session()
@@ -74,6 +109,7 @@ class Neo4JAdapter {
     }
   }
 
+  @Deprecated("use optimiseBuild()")
   /* id required to be id of a permission node */
   private fun connectedRules(id: Int): List<Int> {
     val session: Session = driver.session()
@@ -85,6 +121,7 @@ class Neo4JAdapter {
     }
   }
 
+  @Deprecated("use optimiseBuild()")
   /* id required to be id of a fact node */
   private fun connectedRule(id: Int): List<Int> {
     val session: Session = driver.session()
@@ -96,6 +133,7 @@ class Neo4JAdapter {
     }
   }
 
+  @Deprecated("use optimiseBuild()")
   private fun getNodeText(id: Int): String {
     val session: Session = driver.session()
     return session.writeTransaction { tx ->
@@ -106,6 +144,7 @@ class Neo4JAdapter {
     }
   }
 
+  @Deprecated("use optimiseBuild()")
   private fun attackerLocatedNode(): Int {
     val session: Session = driver.session()
     return session.writeTransaction { tx ->
@@ -122,6 +161,8 @@ val adapter: Neo4JAdapter = Neo4JAdapter()
 
 fun main(args: Array<String>) {
 
+  adapter.optimisedBuild()
+
   for (n: Node in adapter.nodes.values) {
     println(String.format("Node: ${n.getPermission()}"))
     for (r: Rule in n.getConnections()) {
@@ -131,7 +172,7 @@ fun main(args: Array<String>) {
 }
 
 class Node(
-        private val id: Int,
+        @Deprecated("Being removed") private val id: Int,
         private val permission: String,
         private val connections: Set<Rule>
 ) {
